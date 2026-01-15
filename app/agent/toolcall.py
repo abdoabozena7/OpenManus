@@ -1,6 +1,7 @@
 import asyncio
 import json
-from typing import Any, List, Optional, Union
+import uuid
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from pydantic import Field
 
@@ -32,6 +33,9 @@ class ToolCallAgent(ReActAgent):
 
     tool_calls: List[ToolCall] = Field(default_factory=list)
     _current_base64_image: Optional[str] = None
+    event_sink: Optional[Callable[[Dict[str, Any]], None]] = Field(
+        default=None, exclude=True
+    )
 
     max_steps: int = 30
     max_observe: Optional[Union[int, bool]] = None
@@ -76,6 +80,11 @@ class ToolCallAgent(ReActAgent):
             response.tool_calls if response and response.tool_calls else []
         )
         content = response.content if response and response.content else ""
+
+        if not tool_calls and content:
+            fallback_call = self._parse_fallback_tool_call(content)
+            if fallback_call:
+                self.tool_calls = tool_calls = [fallback_call]
 
         # Log response info
         logger.info(f"✨ {self.name}'s thoughts: {content}")
@@ -128,6 +137,38 @@ class ToolCallAgent(ReActAgent):
             )
             return False
 
+    def _parse_fallback_tool_call(self, content: str) -> Optional[ToolCall]:
+        """Attempt to parse a tool call embedded in text content."""
+        decoder = json.JSONDecoder()
+        for idx, char in enumerate(content):
+            if char != "{":
+                continue
+            try:
+                obj, _ = decoder.raw_decode(content[idx:])
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(obj, dict):
+                continue
+            name = obj.get("name")
+            args = obj.get("arguments")
+            if not name or name not in self.available_tools.tool_map:
+                continue
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError:
+                    args = {"input": args}
+            if not isinstance(args, dict):
+                args = {"input": args}
+            logger.warning(
+                f"Fallback tool call parsed from content: {name}({args})"
+            )
+            return ToolCall(
+                id=f"fallback-{uuid.uuid4().hex}",
+                function={"name": name, "arguments": json.dumps(args)},
+            )
+        return None
+
     async def act(self) -> str:
         """Execute tool calls and handle their results"""
         if not self.tool_calls:
@@ -176,6 +217,8 @@ class ToolCallAgent(ReActAgent):
             # Parse arguments
             args = json.loads(command.function.arguments or "{}")
 
+            self._emit_event({"type": "tool_start", "tool": name, "args": args})
+
             # Execute the tool
             logger.info(f"🔧 Activating tool: '{name}'...")
             result = await self.available_tools.execute(name=name, tool_input=args)
@@ -187,6 +230,12 @@ class ToolCallAgent(ReActAgent):
             if hasattr(result, "base64_image") and result.base64_image:
                 # Store the base64_image for later use in tool_message
                 self._current_base64_image = result.base64_image
+
+            self._emit_event({
+                "type": "tool_result",
+                "tool": name,
+                "result": self._format_tool_result(result),
+            })
 
             # Format result for display (standard case)
             observation = (
@@ -205,6 +254,7 @@ class ToolCallAgent(ReActAgent):
         except Exception as e:
             error_msg = f"⚠️ Tool '{name}' encountered a problem: {str(e)}"
             logger.exception(error_msg)
+            self._emit_event({"type": "tool_error", "tool": name, "error": str(e)})
             return f"Error: {error_msg}"
 
     async def _handle_special_tool(self, name: str, result: Any, **kwargs):
@@ -216,6 +266,42 @@ class ToolCallAgent(ReActAgent):
             # Set agent state to finished
             logger.info(f"🏁 Special tool '{name}' has completed the task!")
             self.state = AgentState.FINISHED
+
+    def _emit_event(self, event: dict) -> None:
+
+        if not self.event_sink:
+
+            return
+
+        try:
+
+            self.event_sink(event)
+
+        except Exception:
+
+            logger.debug("Event sink raised an exception.")
+
+
+
+    @staticmethod
+
+    def _format_tool_result(result: Any) -> str:
+
+        if isinstance(result, str):
+
+            return result
+
+        if hasattr(result, "output") or hasattr(result, "error"):
+
+            output = getattr(result, "output", None)
+
+            error = getattr(result, "error", None)
+
+            return output or error or ""
+
+        return str(result)
+
+
 
     @staticmethod
     def _should_finish_execution(**kwargs) -> bool:

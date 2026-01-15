@@ -1,0 +1,8 @@
+Slide 1: Title - Point of Sale (POS) System
+Slide 2: Introduction - What is a POS system?
+Slide 3: Software Engineering Perspective - Why is it important to study POS in SE?
+Slide 4: System Components - Hardware and Software Overview
+Slide 5: Functional Requirements - Sales, Inventory, Reports
+Slide 6: Non-Functional Requirements - Usability, Performance, Security
+Slide 7: Advantages and Challenges
+Slide 8: Conclusion and Future Improvements
