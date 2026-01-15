@@ -109,6 +109,8 @@ if "summary_text" not in st.session_state:
     st.session_state.summary_text = ""
 if "blocked_by_captcha" not in st.session_state:
     st.session_state.blocked_by_captcha = False
+if "story_keys" not in st.session_state:
+    st.session_state.story_keys = set()
 
 with st.sidebar:
     st.subheader("Connection")
@@ -165,9 +167,10 @@ def friendly_from_event(event: dict) -> list[str]:
                 url = args.get("url") or "a page"
                 messages.append(f"Opening {url}.")
             else:
-                messages.append("Using the browser to gather information.")
+                messages.append("Browsing to collect information.")
         else:
-            messages.append("Working on the next step.")
+            clean_tool = tool.split("_")[-1].replace("-", " ")
+            messages.append(f"Running {clean_tool} to move forward.")
         return messages
 
     if event_type == "tool_result":
@@ -184,7 +187,10 @@ def friendly_from_event(event: dict) -> list[str]:
         elif "security" in result.lower() and "review" in result.lower():
             messages.append("That site needs a security check, skipping it.")
         else:
-            messages.append("Found useful content and will summarize it.")
+            if result:
+                messages.append("Found useful content and will summarize it.")
+            else:
+                messages.append("Continuing the investigation.")
         return messages
 
     if event_type == "tool_error":
@@ -250,8 +256,9 @@ def run_summary_thread(findings: list[str]) -> str:
         llm = LLM()
         prompt_text = "\n".join(findings)
         user_prompt = (
-            "Summarize the findings in plain language. "
-            "Keep it short, clear, and useful."
+            "Write a detailed, user-friendly summary based on the findings. "
+            "Use short paragraphs or bullet points, include concrete tips, "
+            "and avoid technical jargon. If sources disagree, note that."
         )
         return await llm.ask(
             messages=[{"role": "user", "content": f"{user_prompt}\n\n{prompt_text}"}],
@@ -290,6 +297,30 @@ def render_steps(container, steps: list[str]) -> None:
     container.markdown(f"<div class='steps'>{cards}</div>", unsafe_allow_html=True)
 
 
+def add_story_line(line: str) -> None:
+    if not line:
+        return
+    recent = st.session_state.live_story[-6:]
+    if line in recent:
+        return
+    st.session_state.live_story.append(line)
+
+
+def event_key(event: dict) -> str:
+    event_type = event.get("type", "")
+    tool = event.get("tool", "")
+    args = event.get("args") or {}
+    result = normalize_output(str(event.get("result") or ""))
+    key_parts = [event_type, tool]
+    if isinstance(args, dict):
+        key_parts.append(str(args.get("action") or ""))
+        key_parts.append(str(args.get("query") or ""))
+        key_parts.append(str(args.get("url") or ""))
+    if result:
+        key_parts.append(result[:80])
+    return "|".join(key_parts)
+
+
 if run_clicked:
     cleaned_prompt = prompt.strip()
     if not cleaned_prompt:
@@ -321,10 +352,13 @@ if run_clicked:
                 updated = False
                 while not event_queue.empty():
                     event = event_queue.get()
+                    key = event_key(event)
+                    if key in st.session_state.story_keys:
+                        continue
+                    st.session_state.story_keys.add(key)
                     for line in friendly_from_event(event):
-                        if not st.session_state.live_story or st.session_state.live_story[-1] != line:
-                            st.session_state.live_story.append(line)
-                            updated = True
+                        add_story_line(line)
+                        updated = True
                     if event.get("type") == "tool_result":
                         result = normalize_output(str(event.get("result") or ""))
                         if "captcha" in result.lower() or "verify you are human" in result.lower():
