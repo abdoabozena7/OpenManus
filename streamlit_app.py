@@ -156,9 +156,26 @@ def friendly_from_event(event: dict) -> list[str]:
     tool = event.get("tool", "")
     args = event.get("args") or {}
     result = normalize_output(str(event.get("result") or ""))
+    tool_lower = tool.lower()
+
+    def clean_path(path_value: str) -> str:
+        if not path_value:
+            return "the requested path"
+        return path_value.replace("\\\\", "\\")
 
     if event_type == "tool_start":
-        if "browser_use" in tool:
+        if "str_replace" in tool_lower:
+            command = str(args.get("command") or "edit")
+            path = clean_path(str(args.get("path") or "a file"))
+            if command == "create":
+                messages.append(f"Creating a new file at {path}.")
+            elif command == "replace":
+                messages.append(f"Updating content in {path}.")
+            elif command == "insert":
+                messages.append(f"Inserting content into {path}.")
+            else:
+                messages.append(f"Editing {path}.")
+        elif "browser_use" in tool_lower:
             action = args.get("action")
             if action == "web_search":
                 query = args.get("query") or "your query"
@@ -174,6 +191,17 @@ def friendly_from_event(event: dict) -> list[str]:
         return messages
 
     if event_type == "tool_result":
+        if "str_replace" in tool_lower:
+            if "not an absolute path" in result.lower():
+                messages.append(
+                    "That file path is not absolute. Use a full path like "
+                    "C:\\Users\\A-plus\\OpenManus\\workspace\\your-file.txt."
+                )
+            elif result.lower().startswith("error executing tool"):
+                messages.append("I could not write the file. I will try again with a valid path.")
+            else:
+                messages.append("File update complete.")
+            return messages
         if result.lower().startswith("search results for"):
             lines = [line.strip() for line in result.splitlines()[1:] if line.strip()]
             messages.append(f"Found {len(lines)} results and will open a few.")
@@ -194,7 +222,10 @@ def friendly_from_event(event: dict) -> list[str]:
         return messages
 
     if event_type == "tool_error":
-        messages.append("Hit a snag and will try a different approach.")
+        if "str_replace" in tool_lower:
+            messages.append("I could not update the file. I will try a different path.")
+        else:
+            messages.append("Hit a snag and will try a different approach.")
         return messages
 
     return messages
@@ -391,9 +422,6 @@ if st.session_state.last_prompt:
     st.markdown("<div class='bubble'><strong>You:</strong></div>", unsafe_allow_html=True)
     st.write(st.session_state.last_prompt)
 
-st.subheader("Status")
-status_placeholder = st.empty()
-render_steps(status_placeholder, st.session_state.live_story)
 
 st.subheader("Findings")
 if st.session_state.live_findings:
