@@ -27,14 +27,17 @@ class _BashSession:
     def __init__(self):
         self._started = False
         self._timed_out = False
+        if os.name == "nt":
+            self.command = "powershell -NoProfile -NoLogo"
 
     async def start(self):
         if self._started:
             return
 
+        preexec_fn = os.setsid if os.name != "nt" else None
         self._process = await asyncio.create_subprocess_shell(
             self.command,
-            preexec_fn=os.setsid,
+            preexec_fn=preexec_fn,
             shell=True,
             bufsize=0,
             stdin=asyncio.subprocess.PIPE,
@@ -70,6 +73,9 @@ class _BashSession:
         assert self._process.stdin
         assert self._process.stdout
         assert self._process.stderr
+
+        if os.name == "nt":
+            command = self._translate_windows_command(command)
 
         # send command to the process
         self._process.stdin.write(
@@ -111,6 +117,15 @@ class _BashSession:
         self._process.stderr._buffer.clear()  # pyright: ignore[reportAttributeAccessIssue]
 
         return CLIResult(output=output, error=error)
+
+    def _translate_windows_command(self, command: str) -> str:
+        if command.startswith("mkdir -p "):
+            path = command[len("mkdir -p ") :].strip()
+            return f'New-Item -ItemType Directory -Force -Path "{path}"'
+        if "&&" in command:
+            parts = [p.strip() for p in command.split("&&") if p.strip()]
+            return "; ".join(parts)
+        return command
 
 
 class Bash(BaseTool):

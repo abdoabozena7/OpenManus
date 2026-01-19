@@ -538,12 +538,13 @@ if run_clicked:
                 updated = False
                 while not event_queue.empty():
                     event = event_queue.get()
-                    if event.get("type") == "tool_result" and "planning" in str(event.get("tool", "")).lower():
+                    if event.get("type") == "tool_result":
                         result = normalize_output(str(event.get("result") or ""))
-                        plan_data = parse_plan_output(result)
-                        if plan_data:
-                            st.session_state.plan_data = plan_data
-                            updated = True
+                        if "planning" in str(event.get("tool", "")).lower() or "Plan:" in result:
+                            plan_data = parse_plan_output(result)
+                            if plan_data:
+                                st.session_state.plan_data = plan_data
+                                updated = True
                     key = event_key(event)
                     if key in st.session_state.story_keys:
                         continue

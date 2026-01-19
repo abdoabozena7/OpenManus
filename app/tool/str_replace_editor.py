@@ -129,6 +129,18 @@ class StrReplaceEditor(BaseTool):
         operator = self._get_operator()
         path = self._normalize_path(path)
 
+        if command == "create" and file_text is None:
+            if not Path(path).is_absolute():
+                raise ToolError(f"The path {path} is not an absolute path")
+            if await operator.exists(path):
+                if await operator.is_directory(path):
+                    return str(ToolResult(output=f"Directory already exists at: {path}"))
+                raise ToolError(
+                    f"File already exists at: {path}. Cannot overwrite files using command `create`."
+                )
+            await self._create_directory(path, operator)
+            return str(ToolResult(output=f"Directory created successfully at: {path}"))
+
         # Validate path and command combination
         await self.validate_path(command, Path(path), operator)
 
@@ -136,8 +148,6 @@ class StrReplaceEditor(BaseTool):
         if command == "view":
             result = await self.view(path, view_range, operator)
         elif command == "create":
-            if file_text is None:
-                raise ToolError("Parameter `file_text` is required for command: create")
             await operator.write_file(path, file_text)
             self._file_history[path].append(file_text)
             result = ToolResult(output=f"File created successfully at: {path}")
@@ -172,6 +182,17 @@ class StrReplaceEditor(BaseTool):
         raw = path.replace("\\", "/")
         workspace_root = config.workspace_root
 
+        if raw.startswith("/Users/"):
+            if "/OpenManus/workspace/" in raw:
+                rel = raw.split("/OpenManus/workspace/", 1)[1]
+                return str(workspace_root / rel)
+            if raw.endswith("/OpenManus/workspace"):
+                return str(workspace_root)
+            rel = raw.split("/Users/", 1)[1]
+            if "/" in rel:
+                rel = rel.split("/", 1)[1]
+            return str(workspace_root / rel)
+
         if raw.startswith("/home/"):
             rel = raw.split("/home/", 1)[1]
             if rel.startswith("user/"):
@@ -186,6 +207,19 @@ class StrReplaceEditor(BaseTool):
             return str(workspace_root / path)
 
         return path
+
+    async def _create_directory(self, path: str, operator: FileOperator) -> None:
+        if isinstance(operator, LocalFileOperator):
+            Path(path).mkdir(parents=True, exist_ok=True)
+            return
+
+        if os.name == "nt":
+            cmd = f'mkdir "{path}"'
+        else:
+            cmd = f'mkdir -p "{path}"'
+        returncode, _, stderr = await operator.run_command(cmd)
+        if returncode != 0:
+            raise ToolError(f"Failed to create directory {path}: {stderr}")
 
     async def validate_path(
         self, command: str, path: Path, operator: FileOperator

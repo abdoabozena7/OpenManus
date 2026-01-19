@@ -19,6 +19,10 @@ Follow these guidelines:
 - If multiple tools need to be called in sequence, make one call at a time and wait for results
 - When a plan exists, mark the current step as in progress and completed as you move forward
 - Use Windows absolute paths (e.g. C:\\Users\\A-plus\\OpenManus\\workspace\\...) for file operations unless told otherwise
+- Create project folders under C:\\Users\\A-plus\\OpenManus\\workspace before writing files
+- For web projects, prefer creating a runnable app (e.g. React/Vite) instead of a markdown-only deliverable
+- Use the terminal tool to install dependencies and run the dev server when appropriate
+- If VS Code is available, open the project folder via the terminal tool (e.g. `code <path>`)
 
 Remember to clearly explain your reasoning and actions to the user.
 """
