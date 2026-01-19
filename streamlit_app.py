@@ -9,6 +9,7 @@ import traceback
 from queue import Queue
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from app.agent.mcp import MCPAgent
 from app.config import config
@@ -105,6 +106,30 @@ section[data-testid="stSidebar"] {
 .plan-meta {
   color: var(--muted);
   font-size: 0.9rem;
+}
+.board {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.card-neo {
+  background: linear-gradient(150deg, rgba(20,27,40,0.9), rgba(12,16,26,0.9));
+  border: 1px solid rgba(148,163,184,0.18);
+  border-radius: 18px;
+  padding: 1.1rem 1.25rem;
+  box-shadow: 0 20px 40px rgba(7,11,20,0.55);
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(20, 184, 166, 0.14);
+  color: var(--accent-2);
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.3px;
 }
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(8px); }
@@ -393,6 +418,33 @@ def render_plan(container, plan_data: dict | None) -> None:
     container.markdown(f"{header}<div class='plan'>{''.join(cards)}</div>", unsafe_allow_html=True)
 
 
+def default_plan(prompt_text: str) -> dict:
+    steps = [
+        "Plan the site sections and visual style",
+        "Create project folder and install dependencies",
+        "Build hero + about sections",
+        "Add experience and skills timeline",
+        "Add projects showcase",
+        "Add contact section and links",
+        "Polish styling/animations",
+        "Run and verify build",
+    ]
+    statuses = ["in_progress"] + ["not_started"] * (len(steps) - 1)
+    return {
+        "plan_id": "default",
+        "title": "Build portfolio",
+        "steps": steps,
+        "step_statuses": statuses,
+        "step_notes": ["" for _ in steps],
+    }
+
+
+def render_preview(container, url: str = "http://localhost:5173") -> None:
+    with container:
+        st.markdown("<div class='pill'>Live Preview</div>", unsafe_allow_html=True)
+        components.iframe(url, height=640)
+
+
 def start_agent_thread(
     user_prompt: str,
     connection: str,
@@ -599,3 +651,15 @@ else:
 if st.session_state.summary_text:
     st.subheader("Summary")
     st.markdown(f"<div class='summary'>{st.session_state.summary_text}</div>", unsafe_allow_html=True)
+
+# Build board: plan + preview
+if st.session_state.last_prompt:
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("<div class='pill'>Plan</div>", unsafe_allow_html=True)
+        render_plan(
+            st.container(),
+            st.session_state.plan_data or default_plan(st.session_state.last_prompt),
+        )
+    with col2:
+        render_preview(st.container(), "http://localhost:5173")
