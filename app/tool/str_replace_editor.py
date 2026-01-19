@@ -1,5 +1,6 @@
 """File and directory manipulation tool with sandbox support."""
 
+import os
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, DefaultDict, List, Literal, Optional, get_args
@@ -126,6 +127,7 @@ class StrReplaceEditor(BaseTool):
         """Execute a file operation command."""
         # Get the appropriate file operator
         operator = self._get_operator()
+        path = self._normalize_path(path)
 
         # Validate path and command combination
         await self.validate_path(command, Path(path), operator)
@@ -162,6 +164,28 @@ class StrReplaceEditor(BaseTool):
             )
 
         return str(result)
+
+    def _normalize_path(self, path: str) -> str:
+        if not path:
+            return path
+
+        raw = path.replace("\\", "/")
+        workspace_root = config.workspace_root
+
+        if raw.startswith("/home/"):
+            rel = raw.split("/home/", 1)[1]
+            if rel.startswith("user/"):
+                rel = rel[len("user/") :]
+            return str(workspace_root / rel)
+
+        if raw.startswith("/workspace"):
+            rel = raw[len("/workspace") :].lstrip("/")
+            return str(workspace_root / rel)
+
+        if not Path(path).is_absolute():
+            return str(workspace_root / path)
+
+        return path
 
     async def validate_path(
         self, command: str, path: Path, operator: FileOperator

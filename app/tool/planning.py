@@ -1,4 +1,5 @@
 # tool/planning.py
+import uuid
 from typing import Dict, List, Literal, Optional
 
 from app.exceptions import ToolError
@@ -122,7 +123,7 @@ class PlanningTool(BaseTool):
     ) -> ToolResult:
         """Create a new plan with the given ID, title, and steps."""
         if not plan_id:
-            raise ToolError("Parameter `plan_id` is required for command: create")
+            plan_id = f"plan-{uuid.uuid4().hex[:8]}"
 
         if plan_id in self.plans:
             raise ToolError(
@@ -137,9 +138,12 @@ class PlanningTool(BaseTool):
             or not isinstance(steps, list)
             or not all(isinstance(step, str) for step in steps)
         ):
-            raise ToolError(
-                "Parameter `steps` must be a non-empty list of strings for command: create"
-            )
+            steps = [
+                "Clarify requirements and scope",
+                "Set up the project structure",
+                "Implement the core features",
+                "Validate the output and run the project",
+            ]
 
         # Create a new plan with initialized step statuses
         plan = {

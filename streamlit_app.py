@@ -190,7 +190,7 @@ def friendly_from_event(event: dict) -> list[str]:
         return path_value.replace("\\\\", "\\")
 
     if event_type == "tool_start":
-        if tool_lower == "planning":
+        if tool_lower.endswith("planning"):
             messages.append("Updating the plan.")
             return messages
         if "str_replace" in tool_lower:
@@ -220,7 +220,7 @@ def friendly_from_event(event: dict) -> list[str]:
         return messages
 
     if event_type == "tool_result":
-        if tool_lower == "planning":
+        if tool_lower.endswith("planning"):
             messages.append("Plan updated.")
             return messages
         if "str_replace" in tool_lower:
@@ -538,7 +538,7 @@ if run_clicked:
                 updated = False
                 while not event_queue.empty():
                     event = event_queue.get()
-                    if event.get("type") == "tool_result" and event.get("tool") == "planning":
+                    if event.get("type") == "tool_result" and "planning" in str(event.get("tool", "")).lower():
                         result = normalize_output(str(event.get("result") or ""))
                         plan_data = parse_plan_output(result)
                         if plan_data:

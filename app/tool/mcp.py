@@ -106,8 +106,12 @@ class MCPClients(ToolCollection):
         # Create proper tool objects for each server tool
         for tool in response.tools:
             original_name = tool.name
-            tool_name = f"mcp_{server_id}_{original_name}"
-            tool_name = self._sanitize_tool_name(tool_name)
+            base_name = self._sanitize_tool_name(original_name)
+            prefixed_name = self._sanitize_tool_name(f"mcp_{server_id}_{original_name}")
+
+            tool_name = (
+                prefixed_name if base_name in self.tool_map else base_name
+            )
 
             server_tool = MCPClientTool(
                 name=tool_name,
@@ -119,8 +123,12 @@ class MCPClients(ToolCollection):
             )
             self.tool_map[tool_name] = server_tool
 
+            if prefixed_name not in self.tool_map:
+                self.tool_map[prefixed_name] = server_tool
+
         # Update tools tuple
-        self.tools = tuple(self.tool_map.values())
+        unique_tools = {id(item): item for item in self.tool_map.values()}
+        self.tools = tuple(unique_tools.values())
         logger.info(
             f"Connected to server {server_id} with tools: {[tool.name for tool in response.tools]}"
         )

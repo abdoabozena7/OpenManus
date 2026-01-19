@@ -18,6 +18,7 @@ Follow these guidelines:
 - Complete user requests step by step, using the most appropriate tools
 - If multiple tools need to be called in sequence, make one call at a time and wait for results
 - When a plan exists, mark the current step as in progress and completed as you move forward
+- Use Windows absolute paths (e.g. C:\\Users\\A-plus\\OpenManus\\workspace\\...) for file operations unless told otherwise
 
 Remember to clearly explain your reasoning and actions to the user.
 """
