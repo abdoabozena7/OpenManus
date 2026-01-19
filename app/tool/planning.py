@@ -221,7 +221,7 @@ class PlanningTool(BaseTool):
             )
             total = len(plan["steps"])
             progress = f"{completed}/{total} steps completed"
-            output += f"• {plan_id}{current_marker}: {plan['title']} - {progress}\n"
+            output += f"- {plan_id}{current_marker}: {plan['title']} - {progress}\n"
 
         return ToolResult(output=output)
 
@@ -351,8 +351,8 @@ class PlanningTool(BaseTool):
         ):
             status_symbol = {
                 "not_started": "[ ]",
-                "in_progress": "[→]",
-                "completed": "[✓]",
+                "in_progress": "[>]",
+                "completed": "[x]",
                 "blocked": "[!]",
             }.get(status, "[ ]")
 

@@ -1,4 +1,5 @@
 import asyncio
+import html
 import json
 import re
 import sys
@@ -82,6 +83,29 @@ section[data-testid="stSidebar"] {
   padding: 1rem;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.4);
 }
+.plan {
+  display: grid;
+  gap: 0.6rem;
+}
+.plan-step {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  padding: 0.75rem 0.9rem;
+}
+.plan-step.active {
+  border-color: var(--accent);
+  box-shadow: 0 8px 20px var(--glow);
+}
+.plan-step .status {
+  color: var(--accent-2);
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+.plan-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -111,6 +135,8 @@ if "blocked_by_captcha" not in st.session_state:
     st.session_state.blocked_by_captcha = False
 if "story_keys" not in st.session_state:
     st.session_state.story_keys = set()
+if "plan_data" not in st.session_state:
+    st.session_state.plan_data = None
 
 with st.sidebar:
     st.subheader("Connection")
@@ -164,6 +190,9 @@ def friendly_from_event(event: dict) -> list[str]:
         return path_value.replace("\\\\", "\\")
 
     if event_type == "tool_start":
+        if tool_lower == "planning":
+            messages.append("Updating the plan.")
+            return messages
         if "str_replace" in tool_lower:
             command = str(args.get("command") or "edit")
             path = clean_path(str(args.get("path") or "a file"))
@@ -191,6 +220,9 @@ def friendly_from_event(event: dict) -> list[str]:
         return messages
 
     if event_type == "tool_result":
+        if tool_lower == "planning":
+            messages.append("Plan updated.")
+            return messages
         if "str_replace" in tool_lower:
             if "not an absolute path" in result.lower():
                 messages.append(
@@ -240,6 +272,125 @@ def extract_findings(result: str) -> list[str]:
     elif "extracted content" in result.lower():
         findings.append(result)
     return findings
+
+
+def parse_plan_output(text: str) -> dict | None:
+    if not text:
+        return None
+    plan_id = None
+    title = None
+    steps: list[str] = []
+    statuses: list[str] = []
+    notes: list[str] = []
+    in_steps = False
+    for line in text.splitlines():
+        clean = line.strip()
+        if clean.startswith("Plan: "):
+            match = re.match(r"Plan:\\s*(.+)\\s*\\(ID:\\s*(.+)\\)", clean)
+            if match:
+                title = match.group(1).strip()
+                plan_id = match.group(2).strip()
+            continue
+        if clean == "Steps:":
+            in_steps = True
+            continue
+        if not in_steps:
+            continue
+        step_match = re.match(r"^(\\d+)\\.\\s+\\[(.*?)\\]\\s+(.*)$", clean)
+        if step_match:
+            status_token = (step_match.group(2) or "").strip().lower()
+            step_text = step_match.group(3).strip()
+            if "!" in status_token:
+                status = "blocked"
+            elif "x" in status_token:
+                status = "completed"
+            elif ">" in status_token or "~" in status_token:
+                status = "in_progress"
+            elif status_token:
+                status = "in_progress"
+            else:
+                status = "not_started"
+            steps.append(step_text)
+            statuses.append(status)
+            notes.append("")
+            continue
+        if clean.startswith("Notes:") and notes:
+            notes[-1] = clean.split("Notes:", 1)[1].strip()
+    if not steps:
+        return None
+    return {
+        "plan_id": plan_id or "",
+        "title": title or "Plan",
+        "steps": steps,
+        "step_statuses": statuses,
+        "step_notes": notes,
+    }
+
+
+def get_active_step_index(plan_data: dict) -> int | None:
+    if not plan_data:
+        return None
+    statuses = plan_data.get("step_statuses") or []
+    for idx, status in enumerate(statuses):
+        if status == "in_progress":
+            return idx
+    for idx, status in enumerate(statuses):
+        if status == "blocked":
+            return idx
+    for idx, status in enumerate(statuses):
+        if status == "not_started":
+            return idx
+    return None
+
+
+def render_plan(container, plan_data: dict | None) -> None:
+    if not plan_data:
+        container.markdown(
+            "<div class='plan-step'>No plan yet.</div>", unsafe_allow_html=True
+        )
+        return
+    steps = plan_data.get("steps") or []
+    statuses = plan_data.get("step_statuses") or []
+    notes = plan_data.get("step_notes") or []
+    active_index = get_active_step_index(plan_data)
+    title = html.escape(plan_data.get("title") or "Plan")
+    if active_index is None:
+        current_text = "All steps complete."
+    else:
+        current_text = f"Step {active_index + 1}: {steps[active_index]}"
+    header = (
+        f"<div class='plan-step'><strong>{title}</strong>"
+        f"<div class='plan-meta'>Current: {html.escape(current_text)}</div></div>"
+    )
+    cards = []
+    for idx, step in enumerate(steps):
+        status = statuses[idx] if idx < len(statuses) else "not_started"
+        status_label = {
+            "not_started": "Not started",
+            "in_progress": "In progress",
+            "completed": "Completed",
+            "blocked": "Blocked",
+        }.get(status, "Not started")
+        note_text = notes[idx] if idx < len(notes) else ""
+        note_html = (
+            f"<div class='plan-meta'>Notes: {html.escape(note_text)}</div>"
+            if note_text
+            else ""
+        )
+        active_class = " active" if active_index == idx else ""
+        cards.append(
+            "<div class='plan-step{active_class}'>"
+            "<span class='status'>{status}</span>"
+            "{step}"
+            "{notes}"
+            "</div>".format(
+                active_class=active_class,
+                status=html.escape(status_label),
+                step=html.escape(f"{idx + 1}. {step}"),
+                notes=note_html,
+            )
+        )
+    container.markdown(f"{header}<div class='plan'>{''.join(cards)}</div>", unsafe_allow_html=True)
 
 
 def start_agent_thread(
@@ -363,6 +514,7 @@ if run_clicked:
         st.session_state.live_findings = []
         st.session_state.summary_text = ""
         st.session_state.blocked_by_captcha = False
+        st.session_state.plan_data = None
 
         event_queue: "Queue[dict]" = Queue()
         result_queue: "Queue[tuple]" = Queue()
@@ -376,13 +528,22 @@ if run_clicked:
         )
 
         status_box = st.empty()
+        plan_box = st.empty()
         findings_box = st.empty()
+
+        render_plan(plan_box, st.session_state.plan_data)
 
         with st.spinner("Working on it..."):
             while thread.is_alive() or not event_queue.empty():
                 updated = False
                 while not event_queue.empty():
                     event = event_queue.get()
+                    if event.get("type") == "tool_result" and event.get("tool") == "planning":
+                        result = normalize_output(str(event.get("result") or ""))
+                        plan_data = parse_plan_output(result)
+                        if plan_data:
+                            st.session_state.plan_data = plan_data
+                            updated = True
                     key = event_key(event)
                     if key in st.session_state.story_keys:
                         continue
@@ -400,6 +561,7 @@ if run_clicked:
                                 updated = True
                 if updated:
                     render_steps(status_box, st.session_state.live_story)
+                    render_plan(plan_box, st.session_state.plan_data)
                     if st.session_state.live_findings:
                         findings_box.markdown(
                             "\n".join([f"- {line}" for line in st.session_state.live_findings])
@@ -414,6 +576,7 @@ if run_clicked:
             st.session_state.live_story.append("I ran into a problem.")
 
         render_steps(status_box, st.session_state.live_story)
+        render_plan(plan_box, st.session_state.plan_data)
 
         if st.session_state.live_findings:
             st.session_state.summary_text = run_summary_thread(st.session_state.live_findings)
