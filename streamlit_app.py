@@ -21,87 +21,94 @@ st.set_page_config(page_title="OpenManus MCP UI", page_icon=":compass:", layout=
 st.markdown(
     """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Space+Grotesk:wght@400;600&display=swap');
 :root {
-  --panel: #111827;
-  --panel-2: #0b1220;
-  --accent: #ff6b35;
-  --accent-2: #14b8a6;
-  --muted: #94a3b8;
-  --glow: rgba(255, 107, 53, 0.35);
+  --bg: #04060f;
+  --panel: #0c1224;
+  --card: #0f182e;
+  --glass: rgba(13, 19, 36, 0.75);
+  --text: #e9eefc;
+  --muted: #9fb4da;
+  --accent: #7dd3fc;
+  --accent-2: #a78bfa;
+  --border: #1c2742;
+  --glow: rgba(125, 211, 252, 0.35);
 }
 .stApp {
-  background: radial-gradient(1200px 600px at 80% -10%, #0f172a 0%, #0b1120 60%, #070b14 100%);
-  color: #e2e8f0;
+  background: radial-gradient(1400px 800px at 12% 10%, #101b34 0%, #04060f 55%, #03040a 100%);
+  color: var(--text);
+  font-family: "Inter", system-ui, sans-serif;
 }
 section[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, #0b1220 0%, #0a0f1a 100%);
-  border-right: 1px solid rgba(148, 163, 184, 0.1);
+  background: linear-gradient(180deg, #0a0f1f 0%, #070a14 100%);
+  border-right: 1px solid rgba(148, 163, 184, 0.08);
 }
 .stButton > button {
-  background: linear-gradient(135deg, var(--accent) 0%, #ff8a4c 100%);
-  color: #0b1220;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  color: #04060f;
   border: none;
   border-radius: 12px;
-  padding: 0.55rem 1.5rem;
-  font-weight: 600;
-  box-shadow: 0 10px 24px rgba(255, 107, 53, 0.35);
+  padding: 0.6rem 1.5rem;
+  font-weight: 700;
+  box-shadow: 0 14px 30px rgba(125, 211, 252, 0.3);
 }
-.stButton > button:hover {
-  background: linear-gradient(135deg, #ff8a4c 0%, var(--accent) 100%);
-}
+.stButton > button:hover { transform: translateY(-1px); }
 .stTextArea textarea, .stTextInput input {
-  background: #0f172a;
-  color: #e2e8f0;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 12px;
+  background: #0b1222;
+  color: var(--text);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 14px;
+}
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 18px 42px rgba(0,0,0,0.45);
 }
 .bubble {
-  background: rgba(15, 23, 42, 0.65);
+  background: var(--card);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 16px;
   padding: 0.85rem 1rem;
 }
 .steps {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 .step {
-  background: linear-gradient(160deg, rgba(20, 184, 166, 0.12), rgba(255, 107, 53, 0.1));
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(160deg, rgba(167,139,250,0.12), rgba(125,211,252,0.12));
+  border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 14px;
-  padding: 0.75rem 0.9rem;
+  padding: 0.85rem 1rem;
   animation: fadeUp 0.35s ease-out both;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.35);
+  box-shadow: 0 12px 26px rgba(11, 17, 32, 0.55);
 }
-.step strong {
-  color: var(--accent-2);
-}
+.step strong { color: var(--accent); }
 .summary {
-  background: linear-gradient(160deg, rgba(255, 107, 53, 0.18), rgba(20, 184, 166, 0.12));
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(150deg, rgba(125, 211, 252, 0.12), rgba(167, 139, 250, 0.12));
+  border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 16px;
   padding: 1rem;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.4);
+  box-shadow: 0 14px 32px rgba(5, 8, 16, 0.55);
 }
 .plan {
   display: grid;
   gap: 0.6rem;
 }
 .plan-step {
-  background: rgba(15, 23, 42, 0.7);
+  background: var(--card);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 14px;
-  padding: 0.75rem 0.9rem;
+  padding: 0.85rem 1rem;
 }
 .plan-step.active {
   border-color: var(--accent);
-  box-shadow: 0 8px 20px var(--glow);
+  box-shadow: 0 10px 26px var(--glow);
 }
 .plan-step .status {
   color: var(--accent-2);
-  font-weight: 600;
-  margin-right: 0.5rem;
+  font-weight: 700;
+  margin-right: 0.55rem;
 }
 .plan-meta {
   color: var(--muted);
@@ -109,15 +116,16 @@ section[data-testid="stSidebar"] {
 }
 .board {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
   margin-top: 1rem;
 }
 .card-neo {
-  background: linear-gradient(150deg, rgba(20,27,40,0.9), rgba(12,16,26,0.9));
-  border: 1px solid rgba(148,163,184,0.18);
+  background: linear-gradient(160deg, rgba(16,24,44,0.95), rgba(10,14,26,0.92));
+  border: 1px solid rgba(148,163,184,0.2);
   border-radius: 18px;
   padding: 1.1rem 1.25rem;
-  box-shadow: 0 20px 40px rgba(7,11,20,0.55);
+  box-shadow: 0 22px 46px rgba(3,5,12,0.75);
 }
 .pill {
   display: inline-flex;
@@ -125,23 +133,59 @@ section[data-testid="stSidebar"] {
   gap: 8px;
   padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(20, 184, 166, 0.14);
+  background: rgba(125, 211, 252, 0.15);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.35px;
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(167,139,250,0.15);
   color: var(--accent-2);
   font-weight: 600;
-  font-size: 0.9rem;
-  letter-spacing: 0.3px;
+  font-size: 0.85rem;
 }
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
 }
+.card-inline {
+  background: var(--card);
+  border: 1px solid rgba(148,163,184,0.18);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  display: grid;
+  gap: 4px;
+}
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(148,163,184,0.2), transparent);
+  margin: 0.4rem 0;
+}
+.preview-holder {
+  min-height: 520px;
+  background: #0b111f;
+  border: 1px dashed rgba(148,163,184,0.3);
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
 st.title("OpenManus MCP")
-st.caption("Run the MCP agent with a single prompt.")
+st.caption("Build and ship with the MCP agent. New Neo UI.")
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -654,7 +698,7 @@ if st.session_state.summary_text:
 
 # Build board: plan + preview
 if st.session_state.last_prompt:
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([0.55, 0.45], gap="large")
     with col1:
         st.markdown("<div class='pill'>Plan</div>", unsafe_allow_html=True)
         render_plan(
